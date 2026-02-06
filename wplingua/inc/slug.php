@@ -364,6 +364,29 @@ function wplng_create_slug( $slug ) {
 
 
 /**
+ * Get the count of published 'wplng_slug' posts.
+ *
+ * This function retrieves the number of posts of type 'wplng_slug'
+ * that are currently published on the site.
+ *
+ * @return int The number of published 'wplng_slug' posts.
+ */
+function wplng_get_slug_count() {
+
+	global $wplng_slug_count;
+
+	if ( null !== $wplng_slug_count ) {
+		return $wplng_slug_count;
+	}
+
+	$count_posts      = wp_count_posts( 'wplng_slug' );
+	$wplng_slug_count = (int) ( $count_posts->publish ?? 0 );
+
+	return $wplng_slug_count;
+}
+
+
+/**
  * Get all saved slugs from a wp_query
  *
  * @return array
@@ -380,6 +403,13 @@ function wplng_get_slugs_from_query() {
 		'update_post_meta_cache' => false,
 		'cache_results'          => false,
 		'fields'                 => 'ids', // Only retrieve post IDs
+		'meta_query'             => array(
+			array(
+				'key'     => 'wplng_slug_original_language_id',
+				'value'   => wplng_get_language_website_id(),
+				'compare' => '=',
+			),
+		),
 	);
 
 	// Get all slug IDs
@@ -459,6 +489,7 @@ function wplng_get_slugs_from_query() {
 		// Add source and translations to slugs array
 		$slugs[] = array(
 			'source'       => $source,
+			'id'           => $slug_id,
 			'translations' => $translations,
 		);
 	}
@@ -555,6 +586,13 @@ function wplng_get_slug_saved_from_original( $original ) {
 			),
 		),
 		'fields'         => 'ids',
+		'meta_query'     => array(
+			array(
+				'key'     => 'wplng_slug_original_language_id',
+				'value'   => wplng_get_language_website_id(),
+				'compare' => '=',
+			),
+		),
 	);
 
 	$posts = get_posts( $args );

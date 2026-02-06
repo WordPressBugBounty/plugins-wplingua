@@ -3,8 +3,8 @@ Contributors: wpr0ck, lyly13, pierrelannoy, wplingua
 Donate link: https://wplingua.com/
 Tags: translate, translation, multilingual, localization, language
 Requires at least: 6.0
-Tested up to: 6.8
-Stable tag: 2.9.1
+Tested up to: 6.9
+Stable tag: 2.10.11
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
@@ -13,7 +13,7 @@ Make your websites multilingual and translate them automatically: no word limits
 
 == Description ==
 
-**An all-in-one solution that makes your websites multilingual and translate them automatically, without word or page limits.**
+**An all-in-one solution that makes your websites multilingual and translate them automatically, without word limits.**
 
 ✓ One free first language for non-commercial websites
 ✓ Automatic translation API
@@ -22,6 +22,7 @@ Make your websites multilingual and translate them automatically: no word limits
 ✓ On-page visual editor for editing translations
 ✓ Customizable language switcher
 ✓ Translate website URLs
+✓ Making XML sitemaps automatically multilingual
 ✓ No coding knowledge needed
 ✓ Self-hosted data
 ✓ Open source, find [wpLingua on GitHub](https://github.com/julien-jacob/wplingua)
@@ -115,15 +116,20 @@ Arabic ∘ Chinese ∘ Danish ∘ Dutch ∘ Slovak ∘ English ∘ Finnish ∘ F
 
 Danish ∘ Dutch ∘ English ∘ Finnish ∘ French ∘ German ∘ Hindi ∘ Hungarian ∘ Indonesian ∘ Italian ∘ Japanese ∘ Korean ∘ Portuguese ∘ Spanish ∘ Swedish
 
+You can contribute to the translation of the [wpLingua plugin on translate.wordpress.org](https://translate.wordpress.org/projects/wp-plugins/wplingua/) and contribute to the editing of [PO/MO translation files on GitHub](https://github.com/julien-jacob/wplingua/tree/develop/languages).
+
+
 ### 🔌 Theme and plugin compatibility ###
 The method used by wpLingua to translate website texts ensures compatibility with most themes and plugins.
 
-**Compatible plugins tested:** WooCommerce, Yoast SEO, SEOPress, All in One SEO, SEOKey, Elementor, Gutenberg, Divi Builder, Advanced Custom Fields (ACF), Contact Form 7, Fluent Forms, WP Forms, Gravity Form, MailPoet, WP Rocket, Cache Enabler, All-in-One WP Migration, UpdraftPlus, Redirection, Complianz, WF Cookies, Complianz, LuckyWP Table of content, WP Grid Builder, and more...
+**Compatible plugins tested:** WooCommerce, Yoast SEO, SEOPress, All in One SEO, SEOKey, Elementor, Gutenberg, Divi Builder, Advanced Custom Fields (ACF), Contact Form 7, Fluent Forms, WP Forms, Gravity Form, MailPoet, WP Rocket, Cache Enabler, WP Fastest Cache, All-in-One WP Migration, UpdraftPlus, Redirection, Complianz, WF Cookies, Complianz, LuckyWP Table of content, WP Grid Builder, and more...
 
 **Compatible themes tested:** Divi, Twenty Twenty-One, Astra, OceanWP, Blocksy, Hello, GeneratePress, Neve, Envince, Twenty Twenty-Four, Twenty Twenty-Five, Poe, Neve FSE, Frost, Tove, and more...
 
 ### ⚡️ The wpLingua API ###
 The wpLingua plugin relies on our own wpLingua API, an integrated third-party service, to provide its machine translation functionality. The call to this Third Party Service (wpLingua API) is made when creating an API key from the plugin, during API key verification and when your website requests a new automatic translation (new texts discovered on a page web or request automatic translations from the translation edition). We invite you to consult our [Terms & Conditions page](https://wplingua.com/terms-and-conditions/) for more information.
+
+**Keywords**: wpLingua, WP Lingua, WP-Lingua, Multilingual, Bilingual, Translation, Translate, Translated, Translator, Localization, Automatic translation, Machine translation, Languages, Language switcher, Language selector, API, SEO, Custom flags
 
 
 == Installation ==
@@ -191,16 +197,97 @@ Your server’s database holds all the translations locally.
 
 == Changelog ==
 
-= 2.9.1 =
+= 2.10.11 =
 
-* Show BETA feature: Redirection by language browser
+* Add plugin compatibility: Contact Form 7
 
-= 2.9.0 =
+= 2.10.10 =
 
-* New feature: target language ordering
-* Improved user experience:
- * In all translations on the page: message if no translation is found
- * In-page translation editor: loading indicator when loading the editor
+* Improvement: Review JSON translation rules
+* New filter: `wplng_json_rules_exclusion` - Exclude specific JSON rules from translation
+* New filter: `wplng_json_rules_inclusion` - Include additional JSON rules for translation
+
+
+= 2.10.9 =
+
+* Better plugins compatibility:
+  * All In One SEO sitemaps
+  * Elementor Essential Addons Calendar
+  * jQuery Datepicker
+* Better JSON translation:
+  * Intercept JSON in JavaScript functions
+* Security improvements:
+  * Block suspicious strings from translation (SQL injection, XSS patterns)
+  * Stop plugin execution if URL contains malicious patterns
+* New hidden BETA feature:
+  * Apply wpLingua style to XML sitemaps
+  * Use the Konami code to reveal this option
+* Fix: API data retrieval
+
+= 2.10.8 =
+
+* Optimization: Do not load CSS and JS files on pages excluded from translations
+* Better management of API downtime: no disconnections
+
+= 2.10.7 =
+
+* Update "Tested up to" version to WP 6.9
+* Better plugin compatibility:
+ * WP Amelia
+ * The Events Calendar
+* Better incompatible websites detection
+
+= 2.10.6 =
+
+* Plugin translation update
+
+= 2.10.5 =
+
+* Better WooCommerce compatibility: Exclude ".woocommerce-Price-amount"
+
+= 2.10.4 =
+
+* Better compatibility with Elementor plugin
+* Minor improvement:
+ * API overloaded bar: Fix display on mobile
+ * Optimise data function
+
+= 2.10.3 =
+
+* Better wpLingua heartbeat management
+* Better detection of incompatible websites
+
+= 2.10.2 =
+
+* Improved options pages design and UX
+* SEO feature is now enabled by default
+* Feature - Browser language redirection
+ * Removed BETA status from the option, now considered stable
+ * Fixed inconsistent behavior when enabling it: the linked sub-option is now correctly activated
+* Added Konami code to display JSON formatted data for debugging, import, and export:
+ * Option page: Dictionary
+ * Option page: Links & Medias
+* Updated build process (Gulp configuration) and rebuilt CSS and JS assets
+
+= 2.10.1 =
+
+* Update plugin translations
+
+= 2.10.0 =
+
+* Better compatibility
+ * WooCommerce (Block, REST)
+ * Divi
+* Upgrade JSON translation system:
+ * Better translation of shema JSON
+ * Review method for JSON in HTML attribute
+ * Review JSON inclusion and exclusion method
+ * Detect, parse and translate i18n script in JSON
+* Review method to parse and translate JS
+ * Automatically detect and translate i18n scripts
+ * Detect JSON encoded as URL in scripts
+* Better HTML check
+* Review plugin data system 
 
 All changelogs and previous versions of the wpLingua plugin are available on the releases page of the project's GitHub repo: [https://github.com/julien-jacob/wplingua/releases](https://github.com/julien-jacob/wplingua/releases).
 

@@ -69,6 +69,9 @@ function wplng_str_is_url( $str ) {
 		&& ( '' !== trim( $str ) )
 		&& wplng_str_contains( $str, '/' )
 		&& ! wplng_str_starts_with( $str, 'wpgb-content-block/' ) // Plugin: WP Grid Builder
+		&& ! wplng_str_starts_with( $str, '/wc/store/v1' ) // Plugin: WooCommerce
+		&& ! wplng_str_starts_with( $str, 'GlotPress/' ) // Plugin: WooCommerce
+		&& ! wplng_str_starts_with( $str, 'contact-form-7/v1' ) // Plugin: Contact Form 7
 	) {
 		if ( isset( $parsed['scheme'] )
 			&& (
@@ -105,6 +108,10 @@ function wplng_text_is_translatable( $text ) {
 
 	// Check special no translate tag
 	if ( wplng_str_contains( $text, '_wplingua_no_translate_' ) ) {
+		return false;
+	}
+
+	if ( wplng_str_is_malicious( $text ) ) {
 		return false;
 	}
 
@@ -145,10 +152,83 @@ function wplng_text_is_translatable( $text ) {
 
 
 /**
+ * Check if a string contains malicious patterns (SQL injection, XSS, etc.)
+ *
+ * This function detects common attack patterns used in:
+ * - SQL injection (UNION, SELECT, SLEEP, BENCHMARK, etc.)
+ * - XSS attacks (script tags, javascript: protocol, event handlers)
+ * - Database enumeration (INFORMATION_SCHEMA, system variables)
+ * - File operations (LOAD_FILE, INTO OUTFILE)
+ *
+ * @param string $text The string to check for malicious patterns.
+ * @return bool True if the string contains malicious patterns, false otherwise.
+ */
+function wplng_str_is_malicious( $text ) {
+
+	// Check for SQL injection attempts
+	$sql_patterns = array(
+		'/[\'\"=\)]\s*--\s*$/i',                           // Matches: ' --, " --, = --, ) --
+		'/\bOR\b\s*\d+\s*=\s*\(\s*SELECT\b/i',             // OR-based injection: OR 123=(SELECT ...)
+		'/\bAND\b\s*\d+\s*=\s*\(\s*SELECT\b/i',            // AND-based injection: AND 123=(SELECT ...)
+		'/\bUNION\b\s+(ALL\s+)?SELECT\b/i',                // UNION-based injection: UNION SELECT or UNION ALL SELECT
+		'/PG_SLEEP\s*\(/i',                                // PostgreSQL time-based injection: PG_SLEEP()
+		'/\bSLEEP\s*\(\s*\d/i',                            // MySQL time-based injection: SLEEP(15)
+		'/BENCHMARK\s*\(/i',                               // MySQL time-based injection: BENCHMARK()
+		'/WAITFOR\s+DELAY\s+\'/i',                         // SQL Server time-based injection: WAITFOR DELAY '...'
+		'/;\s*DROP\s+TABLE\b/i',                           // Destructive query: ;DROP TABLE
+		'/;\s*DELETE\s+FROM\b/i',                          // Destructive query: ;DELETE FROM
+		'/;\s*INSERT\s+INTO\b/i',                          // Stacked query: ;INSERT INTO
+		'/;\s*UPDATE\s+\w+\s+SET\b/i',                     // Stacked query: ;UPDATE ... SET
+		'/\'\s*OR\s*\'[\d\w]+\'\s*=\s*\'[\d\w]+/i',        // Classic bypass: ' OR '1'='1
+		'/\'\s*OR\s+\d+\s*=\s*\d+/i',                      // Classic bypass: ' OR 1=1
+		'/\)\s*OR\s+\d+\s*=\s*\(\s*SELECT\b/i',            // Subquery injection: ) OR 123=(SELECT ...)
+		'/^-?\d+\s+OR\s+[\d+\-*\/]+\s*=\s*[\d+\-*\/]+/i',  // Boolean injection: -1 OR 2+866-866-1=0+0+0+1
+		'/\bOR\b\s+[\d+\-*\/]+\s*=\s*[\d+\-*\/]+\s*--/i',  // Boolean injection with comment: OR 1+1=2 --
+		'/\bAND\b\s+[\d+\-*\/]+\s*=\s*[\d+\-*\/]+/i',      // Boolean injection: AND 1+1=2
+		'/LOAD_FILE\s*\(/i',                               // MySQL file read: LOAD_FILE()
+		'/INTO\s+(OUT|DUMP)FILE/i',                        // MySQL file write: INTO OUTFILE / INTO DUMPFILE
+		'/\bEXEC\s*\(/i',                                  // SQL Server command execution: EXEC()
+		'/\bXP_\w+\s*\(/i',                                // SQL Server extended stored procedures: XP_CMDSHELL(), etc.
+		'/@@[a-zA-Z_]\w*/i',                               // MySQL system variables extraction
+		'/CHAR\s*\(\s*\d+\s*(,\s*\d+\s*){2,}\)/i',         // String obfuscation: CHAR(65,66,67) with 3+ args
+		'/0x[0-9a-f]{16,}/i',                              // Hex-encoded payload: long hexadecimal string (16+ chars)
+		'/CONCAT\s*\([^)]*SELECT/i',                       // Obfuscated injection: CONCAT() containing SELECT
+		'/ORDER\s+BY\s+\d+\s*--/i',                        // Column enumeration: ORDER BY 1--
+		'/INFORMATION_SCHEMA\./i',                         // Database schema enumeration: INFORMATION_SCHEMA.tables, etc.
+		'/EXTRACTVALUE\s*\(/i',                            // MySQL XML-based injection: EXTRACTVALUE()
+		'/UPDATEXML\s*\(/i',                               // MySQL XML-based injection: UPDATEXML()
+	);
+
+	foreach ( $sql_patterns as $pattern ) {
+		if ( preg_match( $pattern, $text ) ) {
+			return true;
+		}
+	}
+
+	// Check for XSS attempts
+	$xss_patterns = array(
+		'/<script\b[^>]*>/i',                                 // Script tag injection: <script> or <script src="...">
+		'/javascript\s*:/i',                                  // JavaScript protocol handler: javascript:alert()
+		'/\bon(error|load|click|mouseover|focus|blur)\s*=/i', // Event handler injection: onerror=, onclick=, etc.
+		'/data\s*:\s*text\/html/i',                           // Data URI XSS: data:text/html,...
+		'/vbscript\s*:/i',                                    // VBScript protocol handler: vbscript:msgbox()
+	);
+
+	foreach ( $xss_patterns as $pattern ) {
+		if ( preg_match( $pattern, $text ) ) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+
+/**
  * Escape texte (used for comparison)
  *
- * @param string $text
- * @return string
+ * @param string $text String to escape
+ * @return string Escape texte for comparison
  */
 function wplng_text_esc( $text ) {
 
@@ -172,8 +252,8 @@ function wplng_text_esc( $text ) {
 /**
  * Escape texte (used for editor)
  *
- * @param string $text
- * @return string
+ * @param string $text String to escape
+ * @return string Escape texte for editor
  */
 function wplng_text_esc_displayed( $text ) {
 
@@ -193,23 +273,25 @@ function wplng_text_esc_displayed( $text ) {
 /**
  * Return true if $str is HTML
  *
- * @param string $str
- * @return string
+ * @param string $str String to check
+ * @return bool true if $str is HTML
  */
 function wplng_str_is_html( $str ) {
-	return $str !== wp_strip_all_tags( $str );
+	return wplng_str_contains( $str, '<' )
+		&& wplng_str_contains( $str, '>' )
+		&& ( $str !== wp_strip_all_tags( $str ) );
 }
 
 
 /**
  * Checks whether a string is a valid XML.
  *
- * @param string $string The string to validate.
+ * @param string $str The string to validate.
  * @return bool Returns true if the string is valid XML, false otherwise.
  */
-function wplng_str_is_xml( $string ) {
+function wplng_str_is_xml( $str ) {
 	// Return false if the input is empty or not a string.
-	if ( empty( $string ) || ! is_string( $string ) ) {
+	if ( empty( $str ) || ! is_string( $str ) ) {
 		return false;
 	}
 
@@ -217,7 +299,7 @@ function wplng_str_is_xml( $string ) {
 	libxml_use_internal_errors( true );
 
 	// Try to load the string as XML.
-	$xml = simplexml_load_string( $string );
+	$xml = simplexml_load_string( $str );
 
 	// Determine if parsing was successful.
 	$is_valid_xml = ( $xml !== false );
@@ -231,23 +313,11 @@ function wplng_str_is_xml( $string ) {
 
 
 /**
- * Return true is $str is a JSON
- *
- * @param string $str
- * @return string
- */
-function wplng_str_is_json( $str ) {
-	$decoded = json_decode( $str, true );
-	return ( json_last_error() === JSON_ERROR_NONE ) && is_array( $decoded );
-}
-
-
-/**
  * Return true if $str is a local ID
  * Ex: fr_FR, fr, FR, ...
  *
- * @param string $str
- * @return bool
+ * @param string $str String to check
+ * @return bool true if $str is a local ID
  */
 function wplng_str_is_locale_id( $str ) {
 
@@ -266,170 +336,77 @@ function wplng_str_is_locale_id( $str ) {
 
 
 /**
- * Return true if a JSON string element is translatable
+ * Return true if $str contains sub-strings present in the i18n script
  *
- * @param string $element
- * @param array  $parents
- * @return bool
+ * @param string $str String to check
+ * @return bool String is a i18n script
  */
-function wplng_json_element_is_translatable( $element, $parents ) {
+function wplng_str_is_script_i18n( $str ) {
 
-	$is_translatable   = false;
-	$json_excluded     = wplng_data_excluded_json();
-	$json_to_translate = wplng_data_json_to_translate();
+	$str = trim( $str );
 
-	if ( in_array( $parents, $json_excluded ) ) {
+	return wplng_str_contains( $str, 'wp.i18n.setLocaleData' )
+		&& wplng_str_contains( $str, 'translations.locale_data.messages' )
+		// Check if $str ends with ");"
+		&& wplng_str_ends_with( $str, ');' )
+		// Check if $str starts with "( function( domain, translations ) {"
+		&& ( preg_match( '#^\(\s*function\s*\(\s*domain\s*,\s*translations\s*\)\s*\{#', $str ) === 1 );
+}
 
-		/**
-		 * Is an excluded JSON
-		 */
 
-		$is_translatable = false;
+/**
+ * Return true is $str is a JSON
+ *
+ * @param string $str String to check
+ * @return bool true is $str is a JSON
+ */
+function wplng_str_is_json( $str ) {
+	$decoded = json_decode( $str, true );
+	return ( json_last_error() === JSON_ERROR_NONE ) && is_array( $decoded );
+}
 
-	} elseif ( in_array( $parents, $json_to_translate ) ) {
 
-		/**
-		 * Is an included JSON
-		 */
+/**
+ * Checks if a JSON element should be excluded based on defined exclusion rules.
+ *
+ * @param mixed $element The JSON element to check.
+ * @param array $parents The parent elements of the JSON element.
+ *
+ * @return bool True if the element matches any exclusion rule, false otherwise.
+ */
+function wplng_json_element_is_excluded( $element, $parents ) {
 
-		$is_translatable = true;
+	$rules = wplng_data_json_rules_exclusion();
 
-	} else {
-
-		if (
-			! empty( $parents[0] )
-			&& ( '@graph' === $parents[0] )
-			&& ( count( $parents ) > 2 )
-			&& (
-				(
-					( 'author' === $parents[ count( $parents ) - 2 ] )
-					&& ( 'headline' === $parents[ count( $parents ) - 1 ] )
-				)
-				|| (
-					( 'articleSection' === $parents[ count( $parents ) - 2 ] )
-					&& ( is_int( $parents[ count( $parents ) - 1 ] ) )
-				)
-				|| ( 'caption' === $parents[ count( $parents ) - 1 ] )
-				|| ( 'name' === $parents[ count( $parents ) - 1 ] )
-				|| ( 'alternateName' === $parents[ count( $parents ) - 1 ] )
-				|| ( 'description' === $parents[ count( $parents ) - 1 ] )
-			)
-		) {
-
-			/**
-			 * Is schema-graph
-			 */
-
-			$is_translatable = true;
-
-		} elseif (
-			count( $parents ) == 3
-			&& ( 'elementorFrontendConfig' === $parents[0] )
-			&& ( 'i18n' === $parents[1] )
-		) {
-
-			/**
-			 * Plugin: Elementor - elementorFrontendConfig
-			 */
-
-			$is_translatable = true;
-
-		} elseif (
-			! empty( $parents[0] )
-			&& ( 'wc_address_i18n_params' === $parents[0] )
-			&& ( count( $parents ) > 1 )
-			&& (
-				( 'placeholder' === $parents[ count( $parents ) - 1 ] )
-				|| ( 'label' === $parents[ count( $parents ) - 1 ] )
-			)
-		) {
-
-			/**
-			 * Is WooCommerce address params
-			 */
-
-			$is_translatable = true;
-
-		} elseif (
-			! empty( $parents[0] )
-			&& wplng_str_starts_with( $parents[0], 'CASE' )
-			&& ! empty( $parents[1] )
-			&& 'l10n' === $parents[1]
-			&& ! empty( $parents[2] )
-			&& (
-				$parents[2] === 'selectOption'
-				|| $parents[2] === 'errorLoading'
-				|| $parents[2] === 'removeAllItems'
-				|| $parents[2] === 'loadingMore'
-				|| $parents[2] === 'noResults'
-				|| $parents[2] === 'searching'
-				|| $parents[2] === 'irreversible_action'
-				|| $parents[2] === 'delete_listing_confirm'
-				|| $parents[2] === 'copied_to_clipboard'
-				|| $parents[2] === 'nearby_listings_location_required'
-				|| $parents[2] === 'nearby_listings_retrieving_location'
-				|| $parents[2] === 'nearby_listings_searching'
-				|| $parents[2] === 'geolocation_failed'
-				|| $parents[2] === 'something_went_wrong'
-				|| $parents[2] === 'all_in_category'
-				|| $parents[2] === 'invalid_file_type'
-				|| $parents[2] === 'file_limit_exceeded'
-				|| $parents[2] === 'file_size_limit'
-				|| (
-					$parents[2] === 'datepicker'
-					&& ! empty( $parents[3] )
-					&& (
-						$parents[3] === 'applyLabel'
-						|| $parents[3] === 'cancelLabel'
-						|| $parents[3] === 'customRangeLabel'
-						|| $parents[3] === 'daysOfWeek'
-						|| $parents[3] === 'monthNames'
-					)
-				)
-			)
-		) {
-
-			/**
-			 * Is 'My listing' theme - JSON in HTML
-			 */
-
-			$is_translatable = true;
-
-		} elseif (
-			! empty( $parents[0] )
-			&& ( 'children' === $parents[0] )
-			&& ! empty( $parents[1] )
-			&& ( wplng_str_starts_with( $parents[1], 'term_' ) )
-			&& ! empty( $parents[2] )
-			&& (
-				( 'name' === $parents[2] )
-				|| ( 'description' === $parents[2] )
-			)
-		) {
-
-			/**
-			 * Is 'My listing' theme - JSON in AJAX
-			 */
-
-			$is_translatable = true;
-
-		} elseif ( 'label' === $parents[ count( $parents ) - 1 ] ) {
-			$is_translatable = true;
-		}
-
-		$element = wplng_text_esc( $element );
-
-		if ( ! wplng_text_is_translatable( $element ) ) {
-			$is_translatable = false;
+	foreach ( $rules as $rule ) {
+		if ( $rule( $element, $parents ) === true ) {
+			return true;
 		}
 	}
 
-	return apply_filters(
-		'wplng_json_element_is_translatable',
-		$is_translatable,
-		$element,
-		$parents
-	);
+	return false;
+}
+
+
+/**
+ * Checks if a JSON element should be included based on defined inclusion rules.
+ *
+ * @param mixed $element The JSON element to check.
+ * @param array $parents The parent elements of the JSON element.
+ *
+ * @return bool True if the element matches any inclusion rule, false otherwise.
+ */
+function wplng_json_element_is_included( $element, $parents ) {
+
+	$rules = wplng_data_json_rules_inclusion();
+
+	foreach ( $rules as $rule ) {
+		if ( $rule( $element, $parents ) === true ) {
+			return true;
+		}
+	}
+
+	return false;
 }
 
 
@@ -472,4 +449,52 @@ function wplng_get_context() {
 function wplng_website_in_sub_folder() {
 	$parsed = wp_parse_url( get_home_url() );
 	return ! empty( $parsed['path'] );
+}
+
+
+/**
+ * Counts the number of published posts for all public post types.
+ *
+ * This function retrieves all registered public post types, including custom post types,
+ * and counts the total number of published posts for those post types.
+ * It explicitly includes 'post', 'page', and 'product' post types to ensure they are counted.
+ *
+ * @global wpdb $wpdb WordPress database abstraction object.
+ *
+ * @return int The total count of published posts for the specified post types.
+ */
+function wplng_count_public_content() {
+	global $wpdb;
+
+	// Retrieve all public post types
+	$post_types = get_post_types( array( 'public' => true ), 'names' );
+
+	// Explicitly add specific post types to ensure they are included
+	$post_types = array_merge( $post_types, array( 'post', 'page', 'product' ) );
+
+	// Remove duplicate post types
+	$post_types = array_unique( $post_types );
+
+	// Check if any post types were found
+	if ( empty( $post_types ) ) {
+		return 0; // Return 0 if no post types are found
+	}
+
+	// Prepare placeholders for the SQL query
+	$placeholders = implode( ',', array_fill( 0, count( $post_types ), '%s' ) );
+
+	// Build the SQL query to count published posts for the specified post types
+	$sql  = 'SELECT COUNT(*)' . PHP_EOL;
+	$sql .= "FROM {$wpdb->posts}" . PHP_EOL;
+	$sql .= "WHERE post_status = 'publish'" . PHP_EOL;
+	$sql .= "AND post_type IN ($placeholders)" . PHP_EOL;
+
+	// Secure the SQL query using $wpdb->prepare()
+	$query = $wpdb->prepare( $sql, $post_types );
+
+	// Execute the query and retrieve the result
+	$nombre_de_posts = $wpdb->get_var( $query );
+
+	// Return the total count as an integer
+	return intval( $nombre_de_posts );
 }

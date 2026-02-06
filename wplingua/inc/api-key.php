@@ -54,17 +54,78 @@ function wplng_get_api_key() {
  *
  * @return array
  */
-function wplng_get_api_data() {
+function wplng_get_api_data( $try_update_from_api = false ) {
+
+	global $wplng_api_data;
+
+	if ( $wplng_api_data !== null && $try_update_from_api === false ) {
+		return $wplng_api_data;
+	}
 
 	if ( empty( wplng_get_api_key() ) ) {
 		return array();
 	}
 
-	$data_checked = array();
-	$data         = get_option( 'wplng_api_key_data' );
+	/**
+	 * Get data from cache or API
+	 */
 
-	if ( ! empty( $data ) ) {
-		$data = json_decode( $data, true );
+	$data_checked    = array();
+	$data            = array();
+	$data_from_cache = get_option( 'wplng_api_key_data' );
+
+	if ( ! empty( $data_from_cache ) ) {
+		$data_from_cache = json_decode( $data_from_cache, true );
+		if ( ! is_array( $data_from_cache ) ) {
+			$data_from_cache = array();
+		}
+	}
+
+	if ( empty( $data_from_cache ) ) {
+
+		/**
+		 * No data in cache
+		 */
+
+		// Try to get update from API
+		$data = wplng_api_call_validate_api_key();
+
+		// If no data in cache and no data from API, return empty array
+		if ( empty( $data ) ) {
+			return array();
+		}
+
+		$data['time'] = time();
+
+	} else {
+
+		/**
+		 * Data is in cache
+		 */
+
+		$data = $data_from_cache;
+
+		// Time of last update is not define, set is as current time
+		if ( empty( $data['time'] )
+			|| ! is_int( $data['time'] )
+		) {
+			$data['time'] = time();
+		}
+
+		// Time of last update older than 8 hours
+		// Or $try_update_from_api is true
+		// Try to get update from API
+		if ( ( $data['time'] + ( 8 * HOUR_IN_SECONDS ) ) <= time()
+			|| $try_update_from_api === true
+		) {
+
+			$data_from_api = wplng_api_call_validate_api_key();
+
+			if ( ! empty( $data_from_api ) ) {
+				$data         = $data_from_api;
+				$data['time'] = time();
+			}
+		}
 	}
 
 	/**
@@ -83,7 +144,6 @@ function wplng_get_api_data() {
 		&& ! empty( $data['status'] )
 		&& ! empty( $data['time'] )
 		&& is_int( $data['time'] )
-		&& ( $data['time'] + ( 8 * HOUR_IN_SECONDS ) ) > time()
 	) {
 
 		/**
@@ -140,6 +200,7 @@ function wplng_get_api_data() {
 			'languages_target'  => $languages_target,
 			'features'          => $features,
 			'status'            => $status,
+			'time'              => $data['time'],
 		);
 
 		/**
@@ -151,31 +212,12 @@ function wplng_get_api_data() {
 		) {
 			$data_checked['expiration'] = $data['expiration'];
 		}
+	}
 
-		/**
-		 * Add time
-		 */
-
-		$data_checked['time'] = $data['time'];
-
-	} else {
-
-		/**
-		 * Get sanitized data from API call
-		 */
-
-		$data_checked = wplng_api_call_validate_api_key();
-
-		if ( empty( $data_checked ) ) {
-			return array();
-		}
-
-		/**
-		 * Add time
-		 */
-
-		$data_checked['time'] = time();
-
+	// Set data in DB cache (option)
+	if ( ! empty( $data_checked )
+		&& $data_checked !== $data_from_cache
+	) {
 		update_option(
 			'wplng_api_key_data',
 			wp_json_encode( $data_checked ),
@@ -183,8 +225,10 @@ function wplng_get_api_data() {
 		);
 
 		wp_cache_flush();
-
 	}
+
+	// Set data for global variable
+	$wplng_api_data = $data_checked;
 
 	return $data_checked;
 }

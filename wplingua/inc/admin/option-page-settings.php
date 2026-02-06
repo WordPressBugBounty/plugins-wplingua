@@ -13,9 +13,18 @@ if ( ! defined( 'WPINC' ) ) {
  */
 function wplng_option_page_settings() {
 
-	delete_option( 'wplng_api_key_data' );
+	/**
+	 * Try to get API key data from API
+	 * (From cache if API can not be called
+	 */
 
-	if ( empty( wplng_get_api_data() ) ) {
+	$api_data = wplng_get_api_data( true );
+
+	/**
+	 * Show register screen if empty API data
+	 */
+
+	if ( empty( $api_data ) ) {
 		wplng_option_page_register();
 		return;
 	}
@@ -65,14 +74,10 @@ function wplng_option_page_settings() {
 					<td>
 						<fieldset>
 							<?php wplng_settings_part_features_api(); ?>
-						</fieldset>
-					</td>
-				</tr>
-				<tr>
-					<th scope="row"></th>
-					<td>
-						<fieldset>
-							<?php wplng_settings_part_features_plugin(); ?>
+							<br><br><hr>
+							<?php wplng_settings_part_features_seo(); ?>
+							<br><br><hr>
+							<?php wplng_settings_part_features_more(); ?>
 						</fieldset>
 					</td>
 				</tr>
@@ -139,14 +144,15 @@ function wplng_settings_part_first_use() {
 			)
 		);
 
-		update_option(
-			'wplng_flags_style',
-			'rectangular'
-		);
+		update_option( 'wplng_flags_style', 'rectangular' );
 
 	} else {
 		return false;
 	}
+
+	// Enable SEO feature
+	update_option( 'wplng_sitemap_xml', 1 );
+	update_option( 'wplng_hreflang', 1 );
 
 	// Get URL for first registered language of front page
 	$url_front_page_translated = wplng_url_translate(
@@ -250,11 +256,7 @@ function wplng_settings_part_language_website() {
 		echo '<p>';
 		echo esc_html__( 'This is the language of your website, defined by the associated API key. Make sure your website language is also correctly set in WordPress options (Settings ➔ General ➔ Website Language).', 'wplingua' );
 		echo '<hr>';
-		echo esc_html__( 'If you have mistakenly entered the wrong language, contact wpLingua support to request a correction.', 'wplingua' );
-		echo ' ';
-		echo '<a href="https://wplingua.com/support/" target="_blank">';
-		echo esc_html__( 'wplingua.com : Contact support', 'wplingua' );
-		echo '</a>';
+		echo esc_html__( 'If you have mistakenly selected the wrong language, you can delete the API key in the site options below and request a new API key.', 'wplingua' );
 		echo '</p>';
 		echo '</div>';
 	}
@@ -360,6 +362,8 @@ function wplng_settings_part_languages_target() {
 		<textarea name="wplng_target_languages" id="wplng_target_languages"><?php echo esc_textarea( wp_json_encode( $languages_target, true ) ); ?></textarea>
 	</div>
 
+	<hr>
+
 	<p><?php esc_html_e( 'Access more target languages by upgrading your API key.', 'wplingua' ); ?></strong>
 		<span title="<?php esc_attr_e( 'Click to expand', 'wplingua' ); ?>" wplng-help-box="#wplng-hb-language-adding"></span></p>
 
@@ -407,13 +411,9 @@ function wplng_settings_part_features_api() {
 
 	?>
 	<p><strong><?php esc_html_e( 'API translation features: ', 'wplingua' ); ?></strong></p>
-
 	<hr>
-
 	<p><?php esc_html_e( 'The options below require extended access to the wpLingua API to be functional on your website.', 'wplingua' ); ?></p>
-
 	<hr>
-
 	<fieldset>
 		<input type="checkbox" id="wplng_commercial_use" name="wplng_commercial_use" value="1" <?php checked( 1, in_array( 'commercial', $api_features ), true ); ?> disabled="disabled"/>
 		<label for="wplng_commercial_use">PREMIUM - <?php esc_html_e( 'Use wpLingua on commercial website', 'wplingua' ); ?></label> 
@@ -429,8 +429,6 @@ function wplng_settings_part_features_api() {
 			</a>
 		</p>
 	</div>
-
-	<hr>
 
 	<fieldset>
 		<input type="checkbox" id="wplng_translate_search" name="wplng_translate_search" value="1" <?php checked( 1, get_option( 'wplng_translate_search' ) && in_array( 'search', $api_features ), true ); ?>  <?php disabled( false, in_array( 'search', $api_features ), true ); ?>/>
@@ -459,16 +457,28 @@ function wplng_settings_part_features_api() {
  *
  * @return void
  */
-function wplng_settings_part_features_plugin() {
+function wplng_settings_part_features_seo() {
 
 	?>
-	<p><strong><?php esc_html_e( 'Plugin translation features: ', 'wplingua' ); ?></strong></p>
+	<p><strong><?php esc_html_e( 'SEO features: ', 'wplingua' ); ?></strong></p>
 
 	<hr>
 
 	<fieldset>
-		<input type="checkbox" id="wplng_sitemap_xml" name="wplng_sitemap_xml" value="1" <?php checked( 1, get_option( 'wplng_sitemap_xml' ), true ); ?>/>
-		<label for="wplng_sitemap_xml">BETA - <?php esc_html_e( 'Enable multilingual XML Sitemap', 'wplingua' ); ?></label> 
+		<input type="checkbox" id="wplng_hreflang" name="wplng_hreflang" value="1" <?php checked( 1, get_option( 'wplng_hreflang', 1 ), true ); ?>/>
+		<label for="wplng_hreflang"><?php esc_html_e( 'Add hreflang tags to translated pages', 'wplingua' ); ?></label> 
+		<span title="<?php esc_attr_e( 'Click to expand', 'wplingua' ); ?>" wplng-help-box="#wplng-hb-feature-hreflang"></span>
+	</fieldset>
+
+	<div class="wplng-help-box" id="wplng-hb-feature-hreflang">
+		<p><?php esc_html_e( 'This option automatically adds hreflang tags to your pages that are available in multiple languages.', 'wplingua' ); ?></p>
+		<hr>
+		<p><?php esc_html_e( 'Hreflang tags are HTML metadata used to indicate the URLs of each language version of a page. They are not visible to visitors, but they allow search engines (Google, Bing, etc.) to identify the multilingual structure of the site and display the correct version according to the user\'s language.', 'wplingua' ); ?></p>
+	</div>
+
+	<fieldset>
+		<input type="checkbox" id="wplng_sitemap_xml" name="wplng_sitemap_xml" value="1" <?php checked( 1, get_option( 'wplng_sitemap_xml', 1 ), true ); ?>/>
+		<label for="wplng_sitemap_xml"><?php esc_html_e( 'Enable multilingual XML Sitemap', 'wplingua' ); ?></label> 
 		<span title="<?php esc_attr_e( 'Click to expand', 'wplingua' ); ?>" wplng-help-box="#wplng-hb-feature-sitemap-xml"></span>
 	</fieldset>
 
@@ -481,14 +491,45 @@ function wplng_settings_part_features_plugin() {
 		<p><?php esc_html_e( 'wpLingua uses a universal method that intercepts and extends sitemap. It works with the native WordPress sitemap and with popular SEO plugins such as Yoast SEO, Rank Math, All in One SEO, SEOPress, etc.', 'wplingua' ); ?></p>
 	</div>
 
+	<div class="wplng-beta-hidden" style="display: none;">
+		<fieldset>
+			<input type="checkbox" id="wplng_sitemap_xsl_override" name="wplng_sitemap_xsl_override" value="1" <?php checked( 1, get_option( 'wplng_sitemap_xsl_override', false ), true ); ?>/>
+			<label for="wplng_sitemap_xsl_override">BETA - <?php esc_html_e( 'Use wpLingua display for XML Sitemap', 'wplingua' ); ?></label> 
+			<span title="<?php esc_attr_e( 'Click to expand', 'wplingua' ); ?>" wplng-help-box="#wplng-hb-feature-sitemap-xsl"></span>
+		</fieldset>
+
+		<div class="wplng-help-box" id="wplng-hb-feature-sitemap-xsl">
+			<p><?php esc_html_e( 'This option replaces the default XML Sitemap stylesheet with wpLingua\'s custom display.', 'wplingua' ); ?></p>
+			<hr>
+			<p><?php esc_html_e( 'When enabled, the XML Sitemap will use a wpLingua-designed stylesheet that visually displays all translated URLs directly under each original URL. This makes it easy to verify that all language versions are correctly included in your sitemap.', 'wplingua' ); ?></p>
+			<hr>
+			<p><?php esc_html_e( 'Note: This only affects how the sitemap is displayed in your browser. The actual XML data sent to search engines remains unchanged and fully compatible with all SEO standards.', 'wplingua' ); ?></p>
+			<p><?php esc_html_e( 'This option has no effect when using All In One SEO, as this plugin handles the display of translated links itself.', 'wplingua' ); ?></p>
+		</div>
+    </div>
+	
+	<?php
+}
+
+
+/**
+ * Print HTML subsection of Option page : wpLingua Settings - Plugin feature
+ *
+ * @return void
+ */
+function wplng_settings_part_features_more() {
+
+	?>
+	<p><strong><?php esc_html_e( 'More features: ', 'wplingua' ); ?></strong></p>
+
 	<hr>
 
 	<input type="checkbox" id="wplng_browser_language_redirect_checkbox" name="wplng_browser_language_redirect_checkbox" value="1"/> 
-	<label for="wplng_browser_language_redirect_checkbox">BETA - <?php esc_html_e( 'Enable language browser redirection', 'wplingua' ); ?></label> 
+	<label for="wplng_browser_language_redirect_checkbox"><?php esc_html_e( 'Enable language browser redirection', 'wplingua' ); ?></label> 
 	<span title="<?php esc_attr_e( 'Click to expand', 'wplingua' ); ?>" wplng-help-box="#wplng-hb-feature-browser-language-redirect"></span>
 
 	<div class="wplng-help-box" id="wplng-hb-feature-browser-language-redirect">
-		<p><?php esc_html_e( 'This option automatically redirects visitors to the translated version of your site that matches their browser language when they land on the main homepage (https://your-site.com/). It can improve user experience by showing content in the right language immediately, but depending on your setup, it may introduce side effects.', 'wplingua' ); ?></p>
+		<p><?php esc_html_e( 'This option automatically redirects visitors to the translated version of your site that matches their browser language when they land on the main homepage. It can improve user experience by showing content in the right language immediately, but depending on your setup, it may introduce side effects.', 'wplingua' ); ?></p>
 		<hr>
 		<p><strong><?php esc_html_e( 'Disabled (recommended):', 'wplingua' ); ?></strong></p>
 		<p><?php esc_html_e( 'No redirection is applied. Every visitor always sees the default homepage, regardless of their browser language. This is the safest option and ensures maximum compatibility with caching systems, SEO, and shared links. Recommended if you are unsure which option to choose.', 'wplingua' ); ?></p>
@@ -501,9 +542,18 @@ function wplng_settings_part_features_plugin() {
 	</div>
 
 	<fieldset id="wplng-browser-language-fieldset">
+		<?php
 
-		<?php $wbrowser_language_redirect = get_option( 'wplng_browser_language_redirect', 'disable' ); ?>
+		$wbrowser_language_redirect = get_option( 'wplng_browser_language_redirect', 'disable' );
 
+		if ( $wbrowser_language_redirect !== 'disable'
+			&& $wbrowser_language_redirect !== 'js_only'
+			&& $wbrowser_language_redirect !== 'php_js'
+		) {
+			$wbrowser_language_redirect = 'disable';
+		}
+
+		?>
 		<label>
 			<input type="radio" name="wplng_browser_language_redirect" value="disable" <?php checked( $wbrowser_language_redirect, 'disable' ); ?> />
 			<?php esc_html_e( 'Disable (recommended)', 'wplingua' ); ?> 
