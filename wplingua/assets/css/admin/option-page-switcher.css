@@ -231,6 +231,9 @@
 .wplng-switcher-preview .wplng-switcher.switcher-preview .switcher-content {
   display: inline-block;
 }
+.wplng-switcher-preview .wplng-switcher.switcher-preview.flags-none img {
+  display: none;
+}
 .wplng-switcher-preview .wplng-switcher.switcher-preview.style-dropdown .switcher-content {
   position: absolute;
   right: auto;
