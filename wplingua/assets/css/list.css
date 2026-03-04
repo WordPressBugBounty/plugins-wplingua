@@ -575,8 +575,6 @@ body #wplng-modal-container {
   background-color: #f6f7f7;
   margin-bottom: 15px;
   padding: 8px 0;
-  display: flex;
-  align-items: stretch;
   box-shadow: 0 0 8px rgba(0, 0, 0, 0.05);
   border-radius: 3px;
   border-top-left-radius: 0;
@@ -585,22 +583,31 @@ body #wplng-modal-container {
 #wplng-modal-container #wplng-modal #wplng-modal-items .wplng-modal-item.wplng-is-review {
   border-left: 4px #00a32a solid;
 }
-#wplng-modal-container #wplng-modal #wplng-modal-items .wplng-modal-item .wplng-item-text {
+#wplng-modal-container #wplng-modal #wplng-modal-items .wplng-modal-item .wplng-item-tag {
+  margin-left: 12px;
+  color: #6b6b6b;
+  text-decoration: underline;
+}
+#wplng-modal-container #wplng-modal #wplng-modal-items .wplng-modal-item .wplng-item-main {
+  display: flex;
+  align-items: stretch;
+}
+#wplng-modal-container #wplng-modal #wplng-modal-items .wplng-modal-item .wplng-item-main .wplng-item-text {
   width: calc(100% - 41px);
   display: flex;
   font-size: 14px;
   font-weight: 600;
   line-height: 1.5em;
 }
-#wplng-modal-container #wplng-modal #wplng-modal-items .wplng-modal-item .wplng-item-text .wplng-item-source,
-#wplng-modal-container #wplng-modal #wplng-modal-items .wplng-modal-item .wplng-item-text .wplng-item-translation {
+#wplng-modal-container #wplng-modal #wplng-modal-items .wplng-modal-item .wplng-item-main .wplng-item-text .wplng-item-source,
+#wplng-modal-container #wplng-modal #wplng-modal-items .wplng-modal-item .wplng-item-main .wplng-item-text .wplng-item-translation {
   width: 50%;
   padding: 4px 10px;
 }
-#wplng-modal-container #wplng-modal #wplng-modal-items .wplng-modal-item .wplng-item-text .wplng-item-translation {
+#wplng-modal-container #wplng-modal #wplng-modal-items .wplng-modal-item .wplng-item-main .wplng-item-text .wplng-item-translation {
   border-left: 1px solid #c3c4c7;
 }
-#wplng-modal-container #wplng-modal #wplng-modal-items .wplng-modal-item .wplng-item-edit {
+#wplng-modal-container #wplng-modal #wplng-modal-items .wplng-modal-item .wplng-item-main .wplng-item-edit {
   padding: 0 10px;
 }
 #wplng-modal-container #wplng-modal #wplng-modal-items #wplng-modal-no-item-found {
